@@ -1,12 +1,13 @@
 TESTPC SEGMENT
     ASSUME CS:TESTPC, DS:TESTPC, ES:NOTHING, SS:NOTHING
 ORG 100H
-    START: JMP BEGIN
+    START: JMP BEGIN 
+
 STRING_AX db 'Значение в регистре AX= ', '$'
 string_ibm db 'Тип IBM: ','$'
-STRING_OEM db 'Серийный номер OEM в 16сс: ', '$'
+STRING_OEM db 'Серийный номер OEM в 16сс:    ', '$'
 STRING_SER_NUM db 'Серийный номер пользователя: ', '$'
-STRING_VERS db 'Версия системы:     ', '$'
+STRING_VERS db 'Версия системы:       ', '$'
 string_ent db ' ', 0AH, 0DH, '$'
 string_dot db '.', '$'
 string_t1 db 'PC','$'
@@ -18,6 +19,7 @@ string_t6 db 'PCjr','$'
 string_t7 db 'PC Convertible','$'
 string_t8 db 'Неизвестный тип IBM','$'
 ;-----------------------------------------------------
+ 
 ;procedures
 TETR_TO_HEX PROC near
     and AL, 0Fh
@@ -62,6 +64,7 @@ WRD_TO_HEX ENDP
 ;--------------------------------------------------
 BYTE_TO_DEC PROC near
 ;translate in 10cc, SI - the adress of the field of younger digit
+    
     push CX
     push DX
     xor AH,AH
@@ -193,6 +196,7 @@ ibm_type:
     call what_version  
     call enter
     
+    
 base_version:
     
     mov ah, 30h
@@ -204,10 +208,11 @@ modif_num:
     push bx
     push ax
     
+    
     mov al, ah
     mov si, offset STRING_VERS+22
     call BYTE_TO_DEC
-    ;dec si
+
     mov al, 2Eh
     
     mov [si], al
@@ -215,17 +220,25 @@ modif_num:
     pop ax
     
     call BYTE_TO_DEC
-
     
+    
+ mov dx, offset STRING_VERS
+    mov ah, 09h 
+    int 21h
 oem:
     pop bx
-    call enter
+    ;call enter
+    
+    mov si, offset STRING_OEM+29
+    
+    mov al, bh
+    call BYTE_TO_HEX
+    mov [si], ah 
+    mov [si-1], al
+    
     mov dx, offset STRING_OEM
     mov ah, 09h 
     int 21h
-    mov al, bh
-    call BYTE_TO_HEX
-    call print
     
     call enter
     
