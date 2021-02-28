@@ -17,6 +17,8 @@ str_size_b db 'Размер участка в байтах: ', '$'
 str_sequ db 'Последовательность символов: ', '$'
 str_ent db ' ', 0DH, 0AH, '$'
 str_div db 0DH, 0AH, '------------------------------------', 0DH, 0AH, '$'
+str_fall_code db 'Функция 4ah прерывания 21h завершилась с ошибкой, код ошибки:     ', 0AH, 0DH, '$'
+str_norm db 'Функция 4ah прерывания 21h завершилась корректно', 0DH, 0AH, '$'
 
     
     
@@ -229,15 +231,38 @@ avail_mem proc near
 ret 
 avail_mem endp
 
+check proc near
+    
+    jae wrong
+    mov dx, offset str_norm
+    mov ah, 09h
+    int 21h
+    jmp end_check    
+    
+wrong:
+
+    mov di, offset str_norm - 4
+    call WRD_TO_HEX
+
+    mov dx, offset str_fall_code
+    mov ah, 09h
+    int 21h
+
+end_check:
+    
+ret
+check endp
+
 
 BEGIN:
 
-    ;call free_mem
-    ;call get_mem
+    call free_mem
+    call get_mem
+    ;call check
     
-
+    ;call check
+    
     call avail_mem
-    
     
     mov dx, offset str_exp_mem
     mov ah, 09h
