@@ -198,13 +198,25 @@ get_mem endp
 
 free_mem proc near
 
+    ;mov dx, es
+    ;push dx
+
+    push es
     mov ax, cs
     mov es, ax
     
     mov bx, offset end_this_code
-    mov ax, es
+   
+    mov ax, offset lab3
+    mov cl, 4
     sub bx, ax
+    shr bx, cl
     
+    ;mov ax, es
+    sub bx, ax
+    inc bx
+    
+    pop es
     mov ah, 4ah
     int 21h
     

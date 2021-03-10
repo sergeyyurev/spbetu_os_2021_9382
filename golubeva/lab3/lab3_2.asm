@@ -1,9 +1,12 @@
-LAB3 SEGMENT
-    ASSUME CS:LAB3, DS:LAB3, ES:NOTHING, SS:NOTHING
+TESTPC  SEGMENT
+
+ASSUME CS:TESTPC, DS:TESTPC, ES:NOTHING, SS:NOTHING
+
 ORG 100H
-    START: JMP BEGIN
-    
-str_avail_mem db 'Количество доступной памяти в байтах: ', '$'
+
+START: JMP begin
+
+str_avail_mem db 'Количество доступной памяти в байтах: ','$'
 str_exp_mem db 'Размер расширенной памяти Кб: ', '$'
 str_seg1 db 0DH, 0AH, '0000h - свободный участок',0DH, 0AH,'$'
 str_seg2 db 0DH, 0AH, '0006h - участок принадлежит драйверу OS XMS UMB',0DH, 0AH,'$'
@@ -18,94 +21,226 @@ str_sequ db 'Последовательность символов: ', '$'
 str_ent db ' ', 0DH, 0AH, '$'
 str_div db 0DH, 0AH, '------------------------------------', 0DH, 0AH, '$'
 
-    
-    
-TETR_TO_HEX PROC near
-    and AL, 0Fh
-    cmp AL, 09
-    jbe NEXT
-    add AL, 07
-NEXT: add AL, 30h
-    ret
+TETR_TO_HEX PROC NEAR
+    AND AL, 0FH
+    CMP AL, 09
+    JBE NEXT
+    ADD AL, 07
+
+NEXT:
+    ADD AL, 30H
+    RET
 TETR_TO_HEX ENDP
-;-------------------------------
-BYTE_TO_HEX PROC near
-;byte AL translate in two symbols on 16cc numbers in AX
-    push CX
-    mov AH,AL
-    call TETR_TO_HEX
-    xchg AL,AH
-    mov CL, 4
-    shr AL,CL
-    call TETR_TO_HEX
-    pop CX
-ret
+
+
+BYTE_TO_HEX PROC NEAR
+    PUSH CX
+    MOV AH, AL
+    CALL TETR_TO_HEX
+    XCHG AL, AH
+    MOV CL, 4
+    SHR AL, CL
+    CALL TETR_TO_HEX
+    POP CX
+    RET
 BYTE_TO_HEX ENDP
-;-------------------------------
-WRD_TO_HEX PROC near
-;translate in 16cc a 16 discharge number
-;in AL - number, DI - the address of the last symbol  
-    push BX
-    mov BH,AH
-    call BYTE_TO_HEX
-    mov [DI],AH
-    dec DI
-    mov [DI],AL
-    dec DI
-    mov AL,BH
-    call BYTE_TO_HEX
-    mov [DI],AH
-    dec DI
-    mov [DI],AL
-    pop BX
-ret
+
+
+WRD_TO_HEX PROC NEAR
+    PUSH BX
+    MOV BH, AH
+    CALL BYTE_TO_HEX
+    MOV [DI], AH
+    DEC DI
+    MOV [DI], AL
+    DEC DI
+    MOV AL, BH
+    CALL BYTE_TO_HEX
+    MOV [DI], AH
+    DEC DI
+    MOV [DI], AL
+    POP BX
+    RET
 WRD_TO_HEX ENDP
-;--------------------------------------------------
-BYTE_TO_DEC PROC near
-;translate in 10cc, SI - the adress of the field of younger digit
-    push CX
-    push DX
-    xor AH,AH
-    xor DX,DX
-    mov CX,10
-loop_bd: div CX
-    or DL,30h
-    mov [SI],DL
-    dec SI
-    xor DX,DX
-    cmp AX,10
-    jae loop_bd
-    cmp AL,00h
-    je end_l
-    or AL,30h
-    mov [SI],AL
-end_l: pop DX
-    pop CX
-ret
+
+
+BYTE_TO_DEC PROC NEAR
+    PUSH CX
+    PUSH DX
+    XOR AH, AH
+    XOR DX, DX
+    MOV CX, 10
+
+LOOP_BD:
+    DIV CX
+    OR DL, 30H
+    MOV [SI], DL
+    DEC SI
+    XOR DX, DX
+    CMP AX, 10
+    JAE LOOP_BD
+
+    CMP AL, 00H
+    JE END_L
+    OR AL, 30H
+    MOV [SI], AL
+
+END_L:
+    POP DX
+    POP CX
+    RET
 BYTE_TO_DEC ENDP
-;-------------------------------
 
-print_addr_psp proc near
+
+PARAGRAPH2BYTES PROC
+    PUSH AX
+    PUSH BX
+    PUSH CX
+    PUSH DX
+    PUSH SI
+
+	MOV BX, 10H
+	MUL BX
+	MOV BX, 0AH
+	XOR CX, CX
+
+DIVISION:
+	DIV BX
+	PUSH DX
+	INC CX
+	XOR DX, DX
+	CMP AX, 0H
+	JNZ DIVISION
+
+WRITE_SYMBOL:
+	POP DX
+	OR DL, 30H
+	MOV [SI], DL
+	INC SI
+	LOOP WRITE_SYMBOL
+
+    POP SI
+    POP DX
+    POP CX
+    POP BX
+    POP AX
+	RET
+PARAGRAPH2BYTES ENDP
+
+empty_func proc near
+    mov ax, es
+    push dx
+    mul bx
+    add bx, cx
+    div cx
+    
+    
+    pop dx
+ret
+empty_func endp
+
+
+WRITE_STRING PROC NEAR
+    PUSH AX
+    MOV AH, 9H
+    INT 21H
+    POP AX
+    RET
+WRITE_STRING ENDP
+
+
+avail_mem proc near
+    push dx
     push bx
+    push ax
+    mov dx, offset str_avail_mem
+    mov ah, 09h
+    int 21h
+    
+    mov ah, 4ah
+    mov bx, 0ffffh
+    int 21h
+    
+    mov ax, bx
 
-    mov BH, AH
+    mov bx, 16
+    mul bx
     
-    mov dl, al
-    mov ah, 02h
+    call print_number
+    
+    mov dx, offset str_exp_mem
+    mov ah, 09h
     int 21h
     
-    mov dl, bh
-    mov ah, 02h
-    int 21h
+    mov AL,30h 
+    out 70h,AL
+    in AL,71h
+    mov BL,AL;
+    mov AL,31h 
+    out 70h,AL
+    in AL,71h
+    
+    
+    mov bh,al
+    mov ax,bx
+    
+    mov bx,1h
+	mul bx
+
+    call print_number
+    
+    pop ax
+    pop bx
+    pop dx
+
+
+ret 
+avail_mem endp
+
+print_number proc near
+    push bx
+    push cx
+    push ax
+	mov bx,0Ah
+	xor cx,cx
+divis:
+	div bx
+	push dx
+	inc cx
+	xor dx,dx
+	cmp ax,0
+	jne divis
+	
+print_simb:
+	pop dx
+	or dl,30h
+	
+	mov ah,02h
+	int 21h
+    loop print_simb
+    
+    call enter
+    pop ax
+    pop cx
     pop bx
 
-
 ret
-print_addr_psp endp
+print_number endp
 
 
+OFFSET_DECIMAL_NUMBER PROC NEAR
+OFFSET_LOOP:
+    CMP BYTE PTR [SI], ' '
+    JNE EXIT_OFFSET_DECIMAL
+    INC SI
+    JMP OFFSET_LOOP
+
+EXIT_OFFSET_DECIMAL:
+    RET
+OFFSET_DECIMAL_NUMBER ENDP
 
 addr_psp proc near
+    push dx
 
     cmp ax, 0000h
     mov dx, offset str_seg1
@@ -149,116 +284,32 @@ end_addr:
     
     mov ah, 09h
     int 21h
-
+    pop dx
+    mov ax, bx
+    mov bx, cx
+    mov cx, dx
+    mov dx, ax
     
 ret 
 addr_psp endp
 
-print_number proc near
-	mov bx,0Ah
-	xor cx,cx
-divis:
-	div bx
-	push dx
-	inc cx
-	xor dx,dx
-	cmp ax,0
-	jne divis
-	
-print_simb:
-	pop dx
-	or dl,30h
-	
-	mov ah,02h
-	int 21h
-    loop print_simb
-    
-    call enter
-
-ret
-print_number endp
-
 enter proc near
+    push dx
+    push ax
     mov dx, offset str_ent
     mov ah, 09h
     int 21h
-
+    pop ax
+    pop dx
 
 ret
 enter endp
 
-get_mem proc near
-    mov ah, 48h 
-    mov bx, 1000h;get 64 Kb of memory
-    int 21h
-ret 
-get_mem endp
-
-free_mem proc near
-
-    mov ax, cs
-    mov es, ax
-    
-    mov bx, offset end_this_code
-    mov ax, es
-    sub bx, ax
-    
-    mov ah, 4ah
-    int 21h
-    
-ret
-free_mem endp
-
-avail_mem proc near
-    mov dx, offset str_avail_mem
-    mov ah, 09h
-    int 21h
-    
-    mov ah, 4ah
-    mov bx, 0ffffh
-    int 21h
-    
-    mov ax, bx
-
-    mov bx, 16
-    mul bx
-    
-    call print_number
 
 
-ret 
-avail_mem endp
-
-
-BEGIN:
-
-    call free_mem
-
-    call avail_mem
+PRINT_MCB_CHAIN PROC NEAR
+    push es
     
-    
-    mov dx, offset str_exp_mem
-    mov ah, 09h
-    int 21h
-    
-    mov AL,30h 
-    out 70h,AL
-    in AL,71h
-    mov BL,AL;
-    mov AL,31h 
-    out 70h,AL
-    in AL,71h
-    
-    
-    mov bh,al
-    mov ax,bx
-    
-    mov bx,1h
-	mul bx
-
-    call print_number
-    
-
     mov ah, 52h
     int 21h
 
@@ -313,15 +364,45 @@ loo_:
     jmp loop_list
     
     
+end_pr:
+    pop es
+ret
+PRINT_MCB_CHAIN endp
 
+FREE_MEM PROC NEAR
+    push ax
+    push bx
+    push dx
+
+    LEA AX, end_this_code
+    MOV BX, 10H
+    XOR DX, DX
+    DIV BX
+    INC AX
+    MOV BX, AX
+    add bx, 5h
+    MOV AL, 0
+    MOV AH, 4AH
+    INT 21H
     
-end_pr:  
+    pop dx
+    pop bx
+    pop ax
+
+    RET
+FREE_MEM ENDP
 
 
-    xor AL,AL
-    mov AH,4Ch
-    int 21H
+begin:
+    CALL avail_mem
+    CALL free_mem
+    CALL PRINT_MCB_CHAIN
+
+    XOR AL, AL
+    MOV AH, 4CH
+    INT 21H
+
+
 end_this_code:
-    
-LAB3    ENDS
-          END START
+TESTPC  ENDS
+END START
