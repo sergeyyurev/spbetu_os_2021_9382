@@ -70,11 +70,24 @@ WRD_TO_HEX ENDP
 
 interr proc far
 jmp run
+    
     signature dw 0ff00h, 0ffffh
     count dw 1 
     str_time db 'Произошёл сигнал таймера, всего сигналов: ', '$';42
+    save_ss dw 0
+    save_sp dw 0
+    half dw 0
+    stack1 segment  STACK
+    db 256 dup(0)
+    stack1 ends  
     
 run:
+    mov save_ss, ss
+    mov save_sp, sp
+    
+    mov half, seg stack1
+    mov ss, half
+    mov sp, offset run
 
     push ax
     push bx
@@ -196,6 +209,9 @@ ifn:
     pop cx
     pop bx 
     pop ax
+    
+    mov ss, save_ss
+    mov sp, save_sp
     
     iret
 interr endp
