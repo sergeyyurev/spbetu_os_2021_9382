@@ -7,7 +7,7 @@ SegAddrMem	db	'Segment address of memory:     ',0DH,0AH,'$'
 SegAddrEnv	db	'Segment address of environment:     ',0DH,0AH,'$'	
 Tail		db	'Command line tail: ',0DH,0AH,'$'	
 NoTail		db	'No tail',0DH,0AH,'$'
-TailInfo	db	' $'	
+TailInfo	db	'  $'	
 EnvContent	db	'Environment content:   ',0DH,0AH,'$'	
 NewLine		db	0DH,0AH,'$'	
 Path		db	'Loadable module path:',0DH,0AH,'$'	
@@ -109,26 +109,29 @@ BEGIN:
 		mov	dx, offset tail
 		call print
 		mov	cl, ds:[80h]
-		mov ch, 0
 		cmp	cl, 0
 		je	empty
-		mov	dx, offset tailinfo
-		mov	di, offset tailinfo
-		mov si, 0
+		;xor	ch, ch
+		xor	si, si
+		;xor	ax, ax
+		
 tailLoop:
-		mov	al, ds:[81h+si]
-		mov [di], al
+		mov	dl, ds:[81h+si]
+		mov	ah, 02h
+		int	21h
 		inc	si
-		inc	di
-		loop tailloop
-		jmp print1
+		dec	cl
+		cmp	cl, 0
+		jne tailloop
+		mov	dx, offset newline
+		call print
+		jmp envcon
 		
 empty:
 		mov	dx, offset notail
+		call	print
 
-print1:
-		call print
-
+envcon:
 ;Содержимое области среды
 		mov	dx, offset envcontent
 		call print
@@ -172,4 +175,4 @@ exit:	; Выход в DOS
 		mov AH,4Ch
 		int 21H
 TESTPC ENDS
-		END START
+		END START 
