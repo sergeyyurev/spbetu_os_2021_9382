@@ -1,18 +1,3 @@
-AStack  SEGMENT  STACK
-        DW 128 DUP(0)    
-AStack  ENDS
-
-DATA 	SEGMENT
-load_inf		db	'Interruption loaded',0DH,0AH,'$'
-loaded_inf		db	'Interruption already loaded',0DH,0AH,'$'
-unload_inf		db	'Interruption has been unloaded',0DH,0AH,'$'
-not_load_inf	db	'Interruption not loaded',0DH,0AH,'$'
-
-loaded		db	0
-un			db	0
-DATA	ENDS
-
-
 CODE 	SEGMENT
 		ASSUME CS:CODE, DS:DATA, SS:AStack
 ; Процедуры
@@ -23,10 +8,26 @@ ROUT PROC FAR
 	routdata:
 		counter		DB	'000 interruptions'
 		signature	DW	2910h
+		
+		keep_ss		dw	?
+		keep_sp		dw	?
+		keep_ax		dw	?
+		
 		KEEP_IP 	DW 	0 
 		KEEP_CS 	DW 	0 
 		KEEP_PSP	DW	0
+		
+		rout_stack	dw	16	dup(?)
+		end_stack	dw	?
+
 startrout:
+		mov	keep_ss, ss
+		mov	keep_sp, sp
+		mov	keep_ax, ax
+		mov	ax, seg	rout_stack
+		mov	ss, ax
+		mov	sp, offset end_stack
+		
 		PUSH AX ; сохранение изменяемых регистров
 		push bx
 		push cx
@@ -97,6 +98,10 @@ endc:
 		pop	cx
 		pop	bx
 		POP AX 		; восстановление регистров
+		 
+		mov	ax, keep_ax
+		mov	ss, keep_ss
+		mov	sp, keep_sp
 		 
 		MOV AL, 20H
 		OUT 20H,AL
@@ -277,6 +282,20 @@ exit:
 		int 21H
 MAIN	ENDP
 CODE 	ENDS
+
+AStack  SEGMENT  STACK
+        DW 128 DUP(0)    
+AStack  ENDS
+
+DATA 	SEGMENT
+	load_inf		db	'Interruption loaded',0DH,0AH,'$'
+	loaded_inf		db	'Interruption already loaded',0DH,0AH,'$'
+	unload_inf		db	'Interruption has been unloaded',0DH,0AH,'$'
+	not_load_inf	db	'Interruption not loaded',0DH,0AH,'$'
+
+	loaded		db	0
+	un			db	0
+DATA	ENDS
 
 
 		END MAIN
