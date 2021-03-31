@@ -8,6 +8,7 @@ git remote add VIkDema                   https://github.com/VIkDema/spbetu_os_20
 git remote add Crunchy0                  https://github.com/Crunchy0/spbetu_os_2021_9382.git           # Павлов
 git remote add alexundertable            https://github.com/alexundertable/spbetu_os_2021_9382.git     # Кодуков
 git remote add Homry                     https://github.com/Homry/spbetu_os_2021_9382.git              # Сорокумов
+git remote add oorschnai                 https://github.com/oorschnai/spbetu_os_2021_9382.git          # Сорочина
 git remote add Indiora                   https://github.com/Indiora/spbetu_os_2021_9382.git            # Савельев
 git remote add TestGeorgeH               https://github.com/TestGeorgeH/spbetu_os_2021_9382.git        # Герасев
 git remote add SonKhwa                   https://github.com/SonKhwa/spbetu_os_2021_9382.git            # Пя
