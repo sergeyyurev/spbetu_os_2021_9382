@@ -1,501 +1,312 @@
-stacks segment  STACK
-    db 256 dup(?)
-stacks ends    
+stacks segment stack 
+	dw 64 dup(?)
+stacks ends
 
-data segment  
-; количество сигналов таймера
-isBoot dw 0
-isUnBoot dw 0
-memAdrPsp dw 0
-vect dw 0, 0
-
-
-str_in_no db 'Прерывание не установлено', 0AH, 0DH,'$'
-str_int_mem db 'Прерывание резидентно в памяти', 0AH, 0DH, '$'
-str_in_yes db 'Установлен обработчик прерываний', 0AH, 0DH,'$'
-str_unb db 'Обработчик прерываний выгружен из памяти', 0AH, 0DH, '$'
-str_need_unboot db 'Требуется выгрузить обработчик прерывания из памяти', 0AH, 0DH,'$'
-str_in_already db 'Прерывание уже установлено', 0DH, 0AH, '$'
-str_ax db 'AX=     ', 0DH, 0AH, '$'
-len equ $ - str_ax
-
-
-data ends
+assume cs:code, ds:data, ss:stacks
 
 code segment
 
-    ASSUME CS:code, DS:data, SS:stacks
-    
-TETR_TO_HEX PROC near
-    and AL, 0Fh
-    cmp AL, 09
-    jbe NEXT
-    add AL, 07
-NEXT: add AL, 30h
-    ret
-TETR_TO_HEX ENDP
-;-------------------------------
-BYTE_TO_HEX PROC near
-;byte AL translate in two symbols on 16cc numbers in AX
-    push CX
-    mov AH,AL
-    call TETR_TO_HEX
-    xchg AL,AH
-    mov CL, 4
-    shr AL,CL
-    call TETR_TO_HEX
-    pop CX
-ret
-BYTE_TO_HEX ENDP
-;-------------------------------
-WRD_TO_HEX PROC near
-;translate in 16cc a 16 discharge number
-;in AL - number, DI - the address of the last symbol  
-    push BX
-    mov BH,AH
-    call BYTE_TO_HEX
-    mov [DI],AH
-    dec DI
-    mov [DI],AL
-    dec DI
-    mov AL,BH
-    call BYTE_TO_HEX
-    mov [DI],AH
-    dec DI
-    mov [DI],AL
-    pop BX
-ret
-WRD_TO_HEX ENDP
-
-
-interr proc far
-jmp run
-    
-    signature dw 0ff00h, 0ffffh
-    count dw 1 
-    str_time db 'Произошёл сигнал таймера, всего сигналов: ', '$';42
-    save_ss dw 0
-    save_sp dw 0
-    half dw 0
-    stack1 segment  STACK
-    db 256 dup(0)
-    stack1 ends  
-    
+int_count_func proc far
+	jmp run
+	
+	keep_cs dw 0                               
+	keep_ip dw 0                           
+	nowPsp dw 0      							                   
+	memAdrPsp dw 0	                          	
+	count_interruptions dw 0fedch           
+	keep_ss dw 0						
+	keep_sp dw 0						
+	keep_ax dw 0						
+	count_mes db 'Count of interruptions: 0000 $' 
+	newstack dw 64 dup(?)
 run:
-    mov save_ss, ss
-    mov save_sp, sp
-    
-    mov half, seg stack1
-    mov ss, half
+
+	mov keep_sp, sp 
+    mov keep_ax, ax
+    mov keep_ss, ss
     mov sp, offset run
+    mov ax, seg newstack
+    mov ss, ax
+	
+	push ax      
+	push bx
+	push cx
+	push dx
 
-    push ax
-    push bx
-    push cx
-    push dx
-    
-    ;mem a cursor position
-    mov ah, 03
-    mov bh, 00
-    int 10h
-    
-    push dx;--------cursor position in dx
-    
-;print a string of information  
-    push ds
-    push es
-    
-    mov ax, seg interr
-    mov ds, ax
-    
-    mov dx, offset str_time
-    mov bp, dx
+	mov ah, 3h 
+	mov bh, 0h 
+	int 10h
 
-    ;es - указывает на начало процедуры
-    mov ax, ds
-    mov es, ax 
-    
-    ;print a string
-    mov ah,13h
-    mov al,1 ;sub function code
-    ;1 = use attribute in BL; leave cursor an end of string
-    mov bh,0
-    mov bl, 2
-    mov dh,0;
-    mov dl,0
-    mov cx, 42
-    int 10h
+	push dx 
+	
+	mov ah, 2h 
+	mov bh, 0h
+	mov bl, 2h
+	mov dx, 0h
+	int 10h
 
-    pop es
+	push si
+	push cx
+	push ds
+
+	mov ax, seg count_mes
+	mov ds, ax
+	mov si, offset count_mes
+	add si, 27
+	mov cx, 4
+
+loop_m:
+	mov ah,[si]
+	inc ah
+	mov [si], ah
+	cmp ah, 3ah
+	jne end_interrupt
+	mov ah, 30h
+	mov [si], ah	
+	dec si
+	loop loop_m
+	
+end_interrupt:
     pop ds
-    
-;------------------------	
-    inc count
-    cmp count, 0ffffh
-    jne ifn
-    mov count, 1
-    
-ifn:
-    
-    mov cl, 43
-    mov [di], cl
-
-    mov ax, count
-    ;----preparing ax
-    mov bx,1h
-    mul bx
-
-    ;dx:ax - number
-    mov bx,0Ah
-    xor cx,cx
-    divis:
-    div bx
-    push dx
-    inc cx
-    xor dx,dx
-    cmp ax,0
-    jne divis
-
-    print_simb:
-
-    pop dx
-
-    push cx
-    push dx
-
-    ;------change cursor position
-    mov cl, [di]
-    inc cl
-    mov [di], cl
-    
-    ;put symbol into al
-
-    add dl, 30h
-    ;print a symbol in dl
-    mov al, dl
-
-    ;set curs
-    mov ah, 02
-    mov bh, 00
-    mov dh, 0
-    mov dl, [di]
-    int 10h
-    
-    pop dx
-    ;in dl - digit for print
-
-    mov ah, 09h   ;писать символ в текущей позиции курсора
-    mov bh, 0     ;номер видео страницы
-    mov cx, 1     ;число экземпляров символа для записи
-    int 10h      ;выполнить функцию
-
     pop cx
-    loop print_simb
-  
+	pop si
+	push es
+	push bp
 
-    ;return curs postition
-    
-    pop dx
-    mov ah, 02
-    mov bh, 00
-    int 10h
+	mov ax, seg count_mes
+	mov es, ax
+	mov ax, offset count_mes
+	mov bp, ax
+	mov ah, 13h
+	mov al, 00h
+	mov cx, 28
+	mov bh, 0
+	int 10h
 
-;------end		
-    
-    mov al, 20h
-    out  20h, al
-    
-    pop dx
-    pop cx
-    pop bx 
-    pop ax
-    
-    mov ss, save_ss
-    mov sp, save_sp
-    
-    iret
-interr endp
+	pop bp
+	pop es
 
-;--------------------------
-resident proc
-    ;оставляем процедуру прерывания резидентной
-    ;AH - номер функции 31h;
-    ;AL - код завершения программы;
-    ;DX - размер памяти в параграфах, требуемый резидентной программе.
-    push ax
-    push dx
-    push cx
-    push bx
-    
-    mov dx, offset str_int_mem
-    mov ah, 09h
-    int 21h
-   
+	pop dx
+	mov ah, 02h
+	mov bh, 0h
+	int 10h
 
-    mov AX, memAdrPsp
-    mov BX, seg code
-    sub BX, AX
-    mov DX,offset eeend; размер в байтах от начала сегмента
-    mov CL,4 ; перевод в параграфы
-    shr DX,CL
-    inc DX ; размер в параграфах
-    add DX, BX
-    mov AH,31h
-    mov al, 00h
-    int 21h  
-    
-    pop bx
-    pop cx
-    pop dx
-    pop ax
+	pop dx
+	pop cx
+	pop bx
+	pop ax  
+		
+    mov ss, keep_ss
+    mov ax, keep_ax
+	mov sp, keep_sp
 
+	iret
+int_count_func endp
 
-    ret
-resident endp
+isBootFunc proc near
+	push bx
+	push dx
+	push es
 
-;------------------------
-setInterr proc
+	mov ah, 35h
+	mov al, 1ch
+	int 21h
 
-    push ax
-    push dx
-    push bx
-    
-    mov dx, offset str_in_yes
-    mov ah, 09h
-    int 21h
+	mov dx, es:[bx + 11]
+	cmp dx, 0fedch
+	je int_is_set
+	mov al, 00h
+	jmp end_check_boot
 
-    ;  в программе при загрузке обработчика прерывания
-    MOV AH, 35H ; функция получения вектора
-    MOV AL, 1CH ; номер вектора
-    INT 21H
+int_is_set:
+	mov al, 01h
+	jmp end_check_boot
 
-    
-    ;сохраняем вектор исходного обработчика прерывания таймера
-    mov word ptr vect+2, es
-    mov word ptr vect, bx
+end_check_boot:
+	pop es
+	pop dx
+	pop bx
 
-    ;теперь устанавливаем на его место наш обработчик
+	ret
+isBootFunc endp
+
+sizee:
+
+check_unboot proc near
+	push es
+	
+	mov ax, nowPsp
+	mov es, ax
+	
+	mov al, es:[81h+1]
+	cmp al, '/'
+	jne end_check
+
+	mov al, es:[81h+2]
+	cmp al, 'u'
+	jne end_check
+
+	mov al, es:[81h+3]
+	cmp al, 'n'
+	jne end_check
+	mov al, 1h
+end_check:
+	pop es
+
+	ret
+check_unboot endp
+
+loadfunc proc near
+	push ax
+	push bx
+	push dx
+	push es
+
+	mov ah, 35h 
+	mov al, 1ch
+	int 21h
+	mov keep_ip, bx
+	mov keep_cs, es
+
+	push ds
+
+	mov dx, offset int_count_func
+	mov ax, seg int_count_func
+	mov ds, ax
+	mov ah, 25h 
+	mov al, 1ch 
+	int 21h 
+
+	pop ds
+
+	mov dx, offset str_load
+	call print_str
+
+	pop es
+	pop dx
+	pop bx
+	pop ax
+
+	ret
+loadfunc endp
+
+UnBootFunc proc near
+	push ax
+	push bx
+	push dx
+	push es
+
+	mov ah, 35h
+	mov al, 1ch
+	int 21h
+
+	push ds   
+
+	mov dx, es:[bx + 5]  
+	mov ax, es:[bx + 3]
+	mov ds, ax
+	mov ah, 25h
+	mov al, 1ch
+	int 21h 
+
+	pop ds
+
+	sti
+	mov dx, offset str_unload
+	call print_str
+
+	push es	
+
+	mov cx, es:[bx + 7] ;nowPsp
+	mov es, cx
+	mov ah, 49h
+	int 21h
+
+	pop es
+	
+	mov cx, es:[bx + 9] ;memAdrPsp
+	mov es, cx
+	int 21h
+
+	pop es
+	pop dx
+	pop bx
+	pop ax
+	
+	ret
+UnBootFunc endp
+
+print_str proc near
+	push ax
+
+	mov ah, 09h
+	int	21h
+
+	pop ax
+
+	ret
+print_str endp
+
+main proc far
+	mov bx, 02ch
+	mov ax, [bx]
+	mov memAdrPsp, ax
+	mov nowPsp, ds  
+	xor ax, ax    
+	xor bx, bx
+
+	mov ax, data  
+	mov ds, ax    
+
+	call check_unboot  
+	cmp al, 01h
+	je unload_mark
+
+	call isBootFunc  
+	cmp al, 01h
+	jne interruption_is_not_loaded
+	
+	mov dx, offset str_already_load	
+	call print_str
+	jmp eeend
        
-    PUSH DS
-    MOV DX, OFFSET interr ;смещение для процедуры в dx
-    ;кладём в ds сегмент процедуры
-    MOV AX, SEG interr ;сегмент процедуры
-    MOV DS, AX ;помещаем в ds
-    
-    MOV AH, 25H ;функция установки вектора прерывания
-    MOV AL, 1CH ;номер вектора
-    
-    INT 21H ;меняем прерывание
-    POP DS
-    
-    pop bx
-    pop dx
-    pop ax
+	mov ah,4ch
+	int 21h
 
+interruption_is_not_loaded:
+	call loadfunc
+	
+	mov dx, offset sizee
+	mov cl, 04h
+	shr dx, cl
+	add dx, 1bh
+	mov ax, 3100h
+	int 21h
+         
+unload_mark:
+	call isBootFunc
+	cmp al, 00h
+	je not_set
+	call UnBootFunc
+	jmp eeend
 
-    ret
-setInterr endp
-;------------------------
-isBootFunc proc
-    push ax
-    push bx
-    push dx
-    push es
+not_set:
+	mov dx, offset str_not_loaded
+	call print_str
+    jmp eeend
+	
+eeend:
+	mov ah, 4ch
+	int 21h
+main endp
 
-    mov ax, 351Ch ;
-    int  21h
-    ;bx, es
-    ;-------------------
-    add bx, offset signature - offset interr
-    mov  dx, es:[bx];---signature
+code ends
 
-    mov ax, 0ff00h
-    cmp dx, ax
-    jne e_i_s
-    mov  dx, es:[bx+2];---signature
+data segment
+	str_not_loaded db "interrupt not loaded", 0DH, 0AH, '$'
+	str_unload db "interrupt unloaded", 0DH, 0AH, '$'
+	str_already_load db "interrupt is already load", 0DH, 0AH, '$'
+	str_load db "interrupt was loaded", 0DH, 0AH, '$'
+data ends
 
-    mov ax, 0ffffh
-    cmp dx, ax
-    je ad
-    jmp e_i_s
-    
-ad:
-
-    pop es
-    mov isBoot, 1
-    mov dx, offset str_in_already
-    mov ah, 09h
-    int 21h
-    jmp ex_
-e_i_s:
-    ;pop ds
-    pop es
-ex_:    
-    pop dx
-    pop bx
-    pop ax
-    ret
-isBootFunc endp    
-
-;-------------------------
-isUnBootFunc proc
-    push es
-    push ax
-    push dx
-    push cx
-    
-    mov ax, memAdrPsp
-    mov es, ax
-    mov cl, es:[80h]
-    
-    cmp cl, 4h
-    jl non
-    
-    mov dl, es:[81h]
-    cmp dl, ' '
-    jne non
-
-    mov dl, es:[81h+1]
-    cmp dl, '/'
-    jne non
-    
-    mov dl, es:[81h+2h]
-    cmp dl, 'u'
-    jne non
-    
-    mov dl, es:[81h+3h]
-    cmp dl, 'n'
-    jne non
-    
-    mov isUnBoot, 1h
-    
-    mov dx, offset str_need_unboot
-    mov ah, 09h
-    int 21h
-
-non:
-    pop cx
-    pop dx
-    pop ax
-    pop es
-    ret
-isUnBootFunc endp   
-;-------------------------
-
-UnBootFunc proc
-    
-    push dx
-    push ax
-    push es
-    push bx
-    mov dx, offset str_unb
-    mov ah, 09h
-    int 21h
-    
-    mov ax, seg data
-    mov bx, seg code
-    
-    sub bx, ax
-
-    push es
-    push bx
-    
-    mov ah, 35h
-    mov al, 1Ch; 
-    int  21h 
-    ;es, bx in resident
-    pop bx
-    push es;---memAdrCode
-    mov ax, es
-    
-    sub ax, bx
-    mov es, ax
-    
-    mov bx, offset vect; отн ds
-    
-    ; в программе при выгрузке обработчика прерываний
-    CLI
-    PUSH DS
-    
-    mov dx, es:[bx];---bx
-    mov ax, es:[bx+2];--es
-    MOV DS, AX
-    
-    MOV AH, 25H ;устанавливаем вектор прерывания
-    MOV AL, 1CH
-    INT 21H ; восстанавливаем вектор
-    ;pop es
-    pop ds
-    
-    ;---free memory
-    pop es
-    mov bx, es;---code in resident
-    pop es
-    mov ax, es;---now es
-    
-    mov dx, seg code;--seg adress now program
-    sub dx, ax ;---defference
-    sub bx, dx;--es in resident
-    mov es, bx
-
-    push es
-    
-    mov ax, es:[2Ch]
-    mov es, ax
-    
-    mov ah, 49h
-    int 21h
-    
-    pop es
-    
-    
-    mov ah, 49h
-    int 21h
-     
-    pop bx 
-    pop es
-    pop ax
-    pop dx
-    STI 
-    
-    ret
-UnBootFunc endp  
-;-------------------------
-
-    
-BEGIN proc far
-
-    mov AX, data
-    mov DS, AX
-    
-    mov bx, es
-    mov memAdrPsp, bx
-    
-    
-    call isBootFunc
-    call isUnBootFunc
-    
-    cmp isBoot, 1h
-    je mayunboot
-;-------------------------------   
-boot:
-    call setInterr
-    call resident
-;-------------------------------
-mayunboot:
-    cmp isUnBoot, 1h
-    jne end_pr
-    call UnBootFunc
-;-------------------------------
-    
-end_pr:    
-    xor AL,AL
-    mov AH,4Ch
-    int 21H
-   
-begin endp 
-
-
-eeend: 
-code    ENDS
-          END begin
+end main
