@@ -8,6 +8,7 @@ git fetch VIkDema         # Демин
 git fetch Crunchy0        # Павлов
 git fetch alexundertable  # Кодуков
 git fetch Homry           # Сорокумов
+git fetch oorschnai       # Сорочина
 git fetch Indiora         # Савельев
 git fetch TestGeorgeH     # Герасев
 git fetch SonKhwa         # Пя
